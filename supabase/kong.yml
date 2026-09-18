@@ -1,0 +1,28 @@
+_format_version: '1.1'
+services:
+  - name: auth-v1-open
+    url: http://auth:9999/verify
+    routes:
+      - name: auth-v1-open-route
+        strip_path: true
+        paths: [/auth/v1/verify]
+  - name: auth-v1
+    url: http://auth:9999/
+    routes:
+      - name: auth-v1-route
+        strip_path: true
+        paths: [/auth/v1/]
+  - name: rest-v1
+    url: http://rest:3000/
+    routes:
+      - name: rest-v1-route
+        strip_path: true
+        paths: [/rest/v1/]
+    plugins:
+      - name: cors
+        config:
+          origins: [http://localhost:3000]
+          methods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+          headers: [Authorization, apikey, Content-Type]
+          exposed_headers: [Content-Range]
+          credentials: true
