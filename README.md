@@ -25,7 +25,10 @@ non-local deployment; do not commit the resulting `.env` file.
 - `rest`: PostgREST API for future data access
 - `kong`: Supabase API gateway on port 8000
 
-Supabase creates its service roles through its own database migrations. A final
-local migration assigns their passwords from `POSTGRES_PASSWORD`, after the
-built-in migrations have completed. Domain tables and the team-lead role model
-are intentionally left to their respective feature issues.
+Supabase creates its service roles through its own database migrations. Local
+migrations then assign their passwords and create the team, role, and MVP domain
+tables. New users initially join the `Nicht zugeordnet` team. The first user
+creates a team during onboarding and becomes its teamleitung; teamleitungen can
+subsequently add teams and assign users to them.
+For a clean local database after updating migrations, run `docker compose down
+-v` before starting the stack again.
