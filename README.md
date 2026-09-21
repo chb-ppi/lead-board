@@ -25,6 +25,7 @@ non-local deployment; do not commit the resulting `.env` file.
 - `rest`: PostgREST API for future data access
 - `kong`: Supabase API gateway on port 8000
 
-The included database initialization grants the Supabase `anon` and
-`authenticated` roles access to the `public` schema. Domain tables and the
-team-lead role model are intentionally left to their respective feature issues.
+Supabase creates its service roles through its own database migrations. A final
+local migration assigns their passwords from `POSTGRES_PASSWORD`, after the
+built-in migrations have completed. Domain tables and the team-lead role model
+are intentionally left to their respective feature issues.

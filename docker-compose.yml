@@ -6,9 +6,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:?copy .env.example to .env}
     volumes:
       - supabase-db:/var/lib/postgresql/data
-      - ./supabase/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./supabase/99999999999999-local-role-passwords.sql:/docker-entrypoint-initdb.d/migrations/99999999999999-local-role-passwords.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres && psql -U postgres -d postgres -tAc \"select count(*) from pg_roles where rolname in ('authenticator', 'supabase_auth_admin') and rolpassword is not null\" | grep -qx 2"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -21,6 +21,7 @@ services:
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${VITE_SUPABASE_URL}/auth/v1
       GOTRUE_DB_DRIVER: postgres
       GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
       GOTRUE_SITE_URL: http://localhost:3000
