@@ -54,6 +54,10 @@ create table public.employee_assignments (
   team_id uuid not null references public.teams (id),
   project_id uuid not null references public.projects (id),
   employee_id uuid not null references public.profiles (id),
+  starts_on date not null,
+  ends_on date,
+  available_days numeric(8, 2) not null check (available_days >= 0),
+  check (ends_on is null or ends_on >= starts_on),
   created_at timestamptz not null default now()
 );
 
