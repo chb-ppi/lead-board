@@ -1,5 +1,6 @@
 alter table public.profiles
   add column name text,
+  add column email_normalized text generated always as (lower(email)) stored,
   add column must_change_password boolean not null default false;
 
 update public.profiles set name = email where name is null;
@@ -32,7 +33,7 @@ begin
 end;
 $$;
 
-create unique index profiles_email_lower_key on public.profiles (lower(email));
+create unique index profiles_email_normalized_key on public.profiles (email_normalized);
 
 create function public.complete_initial_password_change()
 returns void

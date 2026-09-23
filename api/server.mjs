@@ -77,7 +77,7 @@ http
     }
 
     const duplicate = await request(
-      `${restUrl}/profiles?email=ilike.${encodeURIComponent(normalizedEmail)}&select=id`,
+      `${restUrl}/profiles?email_normalized=eq.${encodeURIComponent(normalizedEmail)}&select=id`,
       {
         headers: {
           Authorization: `Bearer ${serviceRoleKey}`,
