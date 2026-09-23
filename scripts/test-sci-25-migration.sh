@@ -105,6 +105,12 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
 do $$
 begin
+  if not exists (
+    select 1 from public.profiles where id = '22222222-2222-2222-2222-222222222222'
+  ) then
+    raise exception 'initial-password lock no longer permits the employee self-read';
+  end if;
+
   if exists (select 1 from public.projects where name = 'Lead-created project') then
     raise exception 'initial-password lock no longer protects employee reads';
   end if;
