@@ -44,9 +44,19 @@ SQL
 
 docker cp supabase/999999999999100-fix-project-trigger-runtime.sql "$container":/tmp/100.sql
 docker cp supabase/999999999999101-adopt-sci-20-roles.sql "$container":/tmp/101.sql
+docker cp supabase/999999999999102-fix-profile-team-assignment.sql "$container":/tmp/102.sql
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /tmp/100.sql >/dev/null
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /tmp/101.sql >/dev/null
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /tmp/101.sql >/dev/null
+# Normal deployments execute runtime migrations as supabase_admin. Applying this
+# migration the same way ensures its SECURITY DEFINER function can still retain
+# the requested team before project RLS is checked.
+docker exec "$container" bash -c \
+  "PGPASSWORD=test-password psql -v ON_ERROR_STOP=1 -U supabase_admin -d postgres -f /tmp/102.sql" \
+  >/dev/null
+docker exec "$container" bash -c \
+  "PGPASSWORD=test-password psql -v ON_ERROR_STOP=1 -U supabase_admin -d postgres -f /tmp/102.sql" \
+  >/dev/null
 
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' >/dev/null
 do $$

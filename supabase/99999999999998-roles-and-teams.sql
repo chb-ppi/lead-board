@@ -20,18 +20,21 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  requested_team_id uuid;
 begin
+  begin
+    requested_team_id := nullif(new.raw_user_meta_data ->> 'team_id', '')::uuid;
+  exception when invalid_text_representation then
+    requested_team_id := null;
+  end;
+
   insert into public.profiles (id, email, role, team_id)
   values (
     new.id,
     new.email,
     (case when not exists (select 1 from public.profiles) then 'team_lead' else 'employee' end)::public.app_role,
-    case
-      when (new.raw_user_meta_data ->> 'team_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        and exists (select 1 from public.teams where id = (new.raw_user_meta_data ->> 'team_id')::uuid)
-      then (new.raw_user_meta_data ->> 'team_id')::uuid
-      else null
-    end
+    case when exists (select 1 from public.teams where id = requested_team_id) then requested_team_id else null end
   );
   return new;
 end;
