@@ -1,13 +1,23 @@
 alter table public.profiles
-  add column name text,
-  add column email_normalized text generated always as (lower(email)) stored,
-  add column must_change_password boolean not null default false;
+  add column if not exists name text,
+  add column if not exists email_normalized text generated always as (lower(email)) stored,
+  add column if not exists must_change_password boolean not null default false;
 
 update public.profiles set name = email where name is null;
 
 alter table public.profiles
-  alter column name set not null,
-  add constraint profiles_name_not_blank check (char_length(trim(name)) > 0);
+  alter column name set not null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'profiles_name_not_blank'
+  ) then
+    alter table public.profiles
+      add constraint profiles_name_not_blank check (char_length(trim(name)) > 0);
+  end if;
+end;
+$$;
 
 create or replace function public.create_profile_for_new_user()
 returns trigger
@@ -33,23 +43,28 @@ begin
 end;
 $$;
 
-create unique index profiles_email_normalized_key on public.profiles (email_normalized);
+create unique index if not exists profiles_email_normalized_key
+  on public.profiles (email_normalized);
 
-create function public.complete_initial_password_change()
-returns void
+drop function if exists public.complete_initial_password_change();
+
+create or replace function public.clear_initial_password_requirement()
+returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  if auth.uid() is null then
-    raise exception 'Authentication required';
-  end if;
-
   update public.profiles
   set must_change_password = false
-  where id = auth.uid() and must_change_password;
+  where id = new.id
+    and must_change_password
+    and old.encrypted_password is distinct from new.encrypted_password;
+  return new;
 end;
 $$;
 
-grant execute on function public.complete_initial_password_change() to authenticated;
+drop trigger if exists clear_initial_password_requirement on auth.users;
+create trigger clear_initial_password_requirement
+after update of encrypted_password on auth.users
+for each row execute function public.clear_initial_password_requirement();

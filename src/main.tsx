@@ -317,14 +317,8 @@ function PasswordChange({ profile }: { profile: Profile }) {
     setBusy(true);
     setMessage("");
     const update = await supabase.auth.updateUser({ password });
-    const completion = update.error
-      ? null
-      : await supabase.rpc("complete_initial_password_change");
     setBusy(false);
-    if (update.error || completion?.error)
-      setMessage(
-        update.error?.message ?? completion?.error?.message ?? "Fehler",
-      );
+    if (update.error) setMessage(update.error.message);
     else window.location.reload();
   }
   return (

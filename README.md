@@ -29,11 +29,12 @@ non-local deployment; do not commit the resulting `.env` file.
 
 Supabase creates its service roles through its own database migrations. Local
 migrations then assign their passwords and create the team, role, and MVP domain
-tables. New users initially join the `Nicht zugeordnet` team. The first user
+tables. The `migrations` service applies later idempotent migrations to both new
+and existing `supabase-db` volumes. New users initially join the `Nicht zugeordnet` team. The first user
 creates a team during onboarding and becomes its teamleitung. Teamleitungen can
 invite employees only into their own team. The invitation API is a separate
 internal service so the Supabase service-role key is never exposed to the
 browser. Invited employees must set their own password before accessing the
 application.
-For a clean local database after updating migrations, run `docker compose down
--v` before starting the stack again.
+For a clean local database, run `docker compose down -v` before starting the
+stack again.
