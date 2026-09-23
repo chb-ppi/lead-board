@@ -9,6 +9,7 @@ services:
       - ./supabase/99999999999998-roles-and-teams.sql:/docker-entrypoint-initdb.d/migrations/99999999999998-roles-and-teams.sql:ro
       - ./supabase/99999999999999-local-role-passwords.sql:/docker-entrypoint-initdb.d/migrations/99999999999999-local-role-passwords.sql:ro
       - ./supabase/99999999999999-z-offer-periods.sql:/docker-entrypoint-initdb.d/migrations/99999999999999-z-offer-periods.sql:ro
+      - ./supabase/99999999999999-z-employee-invitations.sql:/docker-entrypoint-initdb.d/migrations/99999999999999-z-employee-invitations.sql:ro
     healthcheck:
       test:
         [
@@ -37,6 +38,12 @@ services:
       GOTRUE_DISABLE_SIGNUP: "false"
       GOTRUE_MAILER_AUTOCONFIRM: "true"
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_SMTP_HOST: ${SMTP_HOST:?configure an SMTP host for invitations}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:?configure an SMTP port for invitations}
+      GOTRUE_SMTP_USER: ${SMTP_USER:?configure an SMTP user for invitations}
+      GOTRUE_SMTP_PASS: ${SMTP_PASSWORD:?configure an SMTP password for invitations}
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL:?configure an SMTP sender for invitations}
+      GOTRUE_SMTP_SENDER_NAME: Lead Board
 
   rest:
     image: postgrest/postgrest:v12.2.8
@@ -74,6 +81,20 @@ services:
       - kong
     ports:
       - "3000:80"
+
+  api:
+    image: node:24-alpine
+    command: node /app/api/server.mjs
+    depends_on:
+      - auth
+      - rest
+    environment:
+      AUTH_URL: http://auth:9999
+      REST_URL: http://rest:3000
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:?set a Supabase service-role JWT}
+      SITE_URL: http://localhost:3000
+    volumes:
+      - ./api:/app/api:ro
 
 volumes:
   supabase-db:

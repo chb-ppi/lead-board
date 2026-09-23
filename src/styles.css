@@ -95,6 +95,9 @@ button.link {
   margin: 0;
   color: #b42318;
 }
+.success {
+  color: #087443;
+}
 .warning {
   margin: 0;
   color: #8a4b00;
