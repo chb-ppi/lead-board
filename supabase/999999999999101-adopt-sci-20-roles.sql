@@ -10,18 +10,37 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, role, team_id)
-  values (
-    new.id,
-    new.email,
-    (case when not exists (select 1 from public.profiles) then 'team_lead' else 'employee' end)::public.app_role,
-    case
-      when (new.raw_user_meta_data ->> 'team_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        and exists (select 1 from public.teams where id = (new.raw_user_meta_data ->> 'team_id')::uuid)
-      then (new.raw_user_meta_data ->> 'team_id')::uuid
-      else null
-    end
-  );
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'profiles' and column_name = 'name'
+  ) then
+    insert into public.profiles (id, email, name, role, team_id)
+    values (
+      new.id,
+      new.email,
+      new.email,
+      (case when not exists (select 1 from public.profiles) then 'team_lead' else 'employee' end)::public.app_role,
+      case
+        when (new.raw_user_meta_data ->> 'team_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          and exists (select 1 from public.teams where id = (new.raw_user_meta_data ->> 'team_id')::uuid)
+        then (new.raw_user_meta_data ->> 'team_id')::uuid
+        else null
+      end
+    );
+  else
+    insert into public.profiles (id, email, role, team_id)
+    values (
+      new.id,
+      new.email,
+      (case when not exists (select 1 from public.profiles) then 'team_lead' else 'employee' end)::public.app_role,
+      case
+        when (new.raw_user_meta_data ->> 'team_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          and exists (select 1 from public.teams where id = (new.raw_user_meta_data ->> 'team_id')::uuid)
+        then (new.raw_user_meta_data ->> 'team_id')::uuid
+        else null
+      end
+    );
+  end if;
   return new;
 end;
 $$;

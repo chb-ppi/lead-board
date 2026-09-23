@@ -28,9 +28,43 @@ docker exec "$container" bash -c \
   "PGPASSWORD=test-password psql -v ON_ERROR_STOP=1 -U supabase_admin -d postgres -c 'alter event trigger pgrst_ddl_watch disable; alter event trigger pgrst_drop_watch disable; alter event trigger graphql_watch_ddl disable; alter event trigger graphql_watch_drop disable;'" \
   >/dev/null
 
-# Recreate the schema that was already present in deployed SCI-20 volumes.
+# Recreate a deployed SCI-20 volume, including SCI-19's invitation schema.
 git show 02ae21f^:supabase/99999999999998-roles-and-teams.sql |
   docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres >/dev/null
+
+# SCI-19 adds a required invitation display name and password-change state. Its
+# trigger version must remain compatible when SCI-25 adopts the role schema.
+docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' >/dev/null
+alter table public.profiles
+  add column name text,
+  add column must_change_password boolean not null default false;
+alter table public.profiles
+  alter column name set not null;
+
+create or replace function public.create_profile_for_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email, name, role, team_id)
+  values (
+    new.id,
+    new.email,
+    new.email,
+    (case when not exists (select 1 from public.profiles) then 'team_lead' else 'employee' end)::public.app_role,
+    case
+      when (new.raw_user_meta_data ->> 'team_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        and exists (select 1 from public.teams where id = (new.raw_user_meta_data ->> 'team_id')::uuid)
+      then (new.raw_user_meta_data ->> 'team_id')::uuid
+      else null
+    end
+  );
+  return new;
+end;
+$$;
+SQL
 
 # This pre-migration account models an existing assignment that must survive.
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' >/dev/null
@@ -68,8 +102,10 @@ begin
     where id = '22222222-2222-2222-2222-222222222222'
       and role = 'employee'::public.app_role
       and team_id = legacy_team
+      and name = 'new-account@example.test'
+      and not must_change_password
   ) then
-    raise exception 'the new account was not created with the requested team';
+    raise exception 'the new account did not retain SCI-19 initialization';
   end if;
 
   insert into public.customers (team_id, name)
