@@ -65,6 +65,31 @@ as $$
   select coalesce((select role = 'team_lead'::public.app_role from public.profiles where id = auth.uid()), false)
 $$;
 
+-- SCI-19 installs this guard. Older volumes have no password-change column, so
+-- retain their previous access behavior while keeping SCI-19's lock in place.
+create or replace function public.has_completed_initial_password_change()
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  password_changed boolean;
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'profiles' and column_name = 'must_change_password'
+  ) then
+    return true;
+  end if;
+
+  execute 'select not must_change_password from public.profiles where id = auth.uid()'
+    into password_changed;
+  return coalesce(password_changed, false);
+end;
+$$;
+
 create or replace function public.select_team(new_team_id uuid)
 returns public.profiles
 language plpgsql
@@ -129,8 +154,8 @@ drop policy if exists "Manage visible projects" on public.projects;
 drop policy if exists "Team leads manage their projects" on public.projects;
 
 create policy "Anyone can view teams for registration" on public.teams for select using (true);
-create policy "Team leads create teams" on public.teams for insert to authenticated with check (public.is_team_lead());
-create policy "Team leads manage their team" on public.teams for update to authenticated using (id = public.current_team_id() and public.is_team_lead()) with check (id = public.current_team_id() and public.is_team_lead());
-create policy "Users can view their profile and colleagues" on public.profiles for select to authenticated using (id = auth.uid() or (team_id is not null and team_id = public.current_team_id()));
-create policy "Team leads change colleague roles" on public.profiles for update to authenticated using (id <> auth.uid() and team_id = public.current_team_id() and public.is_team_lead()) with check (team_id = public.current_team_id() and public.is_team_lead());
-create policy "Team leads manage their projects" on public.projects for all to authenticated using (public.is_team_lead() and team_id = public.current_team_id()) with check (public.is_team_lead() and team_id = public.current_team_id());
+create policy "Team leads create teams" on public.teams for insert to authenticated with check (public.has_completed_initial_password_change() and public.is_team_lead());
+create policy "Team leads manage their team" on public.teams for update to authenticated using (public.has_completed_initial_password_change() and id = public.current_team_id() and public.is_team_lead()) with check (public.has_completed_initial_password_change() and id = public.current_team_id() and public.is_team_lead());
+create policy "Users can view their profile and colleagues" on public.profiles for select to authenticated using (public.has_completed_initial_password_change() and (id = auth.uid() or (team_id is not null and team_id = public.current_team_id())));
+create policy "Team leads change colleague roles" on public.profiles for update to authenticated using (public.has_completed_initial_password_change() and id <> auth.uid() and team_id = public.current_team_id() and public.is_team_lead()) with check (public.has_completed_initial_password_change() and team_id = public.current_team_id() and public.is_team_lead());
+create policy "Team leads manage their projects" on public.projects for all to authenticated using (public.has_completed_initial_password_change() and public.is_team_lead() and team_id = public.current_team_id()) with check (public.has_completed_initial_password_change() and public.is_team_lead() and team_id = public.current_team_id());

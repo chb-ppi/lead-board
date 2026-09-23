@@ -32,39 +32,9 @@ docker exec "$container" bash -c \
 git show 02ae21f^:supabase/99999999999998-roles-and-teams.sql |
   docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres >/dev/null
 
-# SCI-19 adds a required invitation display name and password-change state. Its
-# trigger version must remain compatible when SCI-25 adopts the role schema.
-docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' >/dev/null
-alter table public.profiles
-  add column name text,
-  add column must_change_password boolean not null default false;
-alter table public.profiles
-  alter column name set not null;
-
-create or replace function public.create_profile_for_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  insert into public.profiles (id, email, name, role, team_id)
-  values (
-    new.id,
-    new.email,
-    new.email,
-    (case when not exists (select 1 from public.profiles) then 'team_lead' else 'employee' end)::public.app_role,
-    case
-      when (new.raw_user_meta_data ->> 'team_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-        and exists (select 1 from public.teams where id = (new.raw_user_meta_data ->> 'team_id')::uuid)
-      then (new.raw_user_meta_data ->> 'team_id')::uuid
-      else null
-    end
-  );
-  return new;
-end;
-$$;
-SQL
+# Apply the real SCI-19 migration, including its invitation access policies.
+git show 7d52d06:supabase/99999999999999-z-employee-invitations.sql |
+  docker exec -i "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres >/dev/null
 
 # This pre-migration account models an existing assignment that must survive.
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' >/dev/null
@@ -111,8 +81,59 @@ begin
   insert into public.customers (team_id, name)
   values (legacy_team, 'Migration customer')
   returning id into customer;
-  insert into public.projects (team_id, customer_id, name)
-  values (legacy_team, customer, 'Migration project');
 end;
 $$;
+SQL
+
+# Verify SCI-22 project management and employee reads through RLS, rather than
+# as postgres (which bypasses row-level policies).
+docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' >/dev/null
+update public.profiles
+set must_change_password = true
+where id = '22222222-2222-2222-2222-222222222222';
+
+begin;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+insert into public.projects (team_id, customer_id, name)
+select team_id, (select id from public.customers where name = 'Migration customer'), 'Lead-created project'
+from public.profiles where id = '11111111-1111-1111-1111-111111111111';
+commit;
+
+begin;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$
+begin
+  if exists (select 1 from public.projects where name = 'Lead-created project') then
+    raise exception 'initial-password lock no longer protects employee reads';
+  end if;
+end;
+$$;
+commit;
+
+update public.profiles
+set must_change_password = false
+where id = '22222222-2222-2222-2222-222222222222';
+
+begin;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$
+begin
+  if not exists (select 1 from public.projects where name = 'Lead-created project') then
+    raise exception 'employee cannot read their team project';
+  end if;
+
+  begin
+    insert into public.projects (team_id, customer_id, name)
+    select team_id, (select id from public.customers where name = 'Migration customer'), 'Employee-created project'
+    from public.profiles where id = '22222222-2222-2222-2222-222222222222';
+    raise exception 'employee was able to create a project';
+  exception when insufficient_privilege then
+    null;
+  end;
+end;
+$$;
+commit;
 SQL
