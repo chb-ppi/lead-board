@@ -11,7 +11,11 @@ if (!supabaseUrl || !supabaseAnonKey)
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 type Row = Record<string, string>;
-type Profile = Row & { role: "team_lead" | "employee"; team_id: string };
+type Profile = Row & {
+  role: "team_lead" | "employee";
+  team_id: string;
+  must_change_password?: boolean;
+};
 
 const fields: Record<string, Array<[string, string, string?]>> = {
   customers: [["name", "Kunde"]],
@@ -221,6 +225,8 @@ function App() {
       </main>
     );
 
+  if (profile.must_change_password) return <PasswordChange profile={profile} />;
+
   if (!profile.team_id && profile.role === "team_lead")
     return (
       <main className="card">
@@ -276,15 +282,12 @@ function App() {
       </header>
       <section className="notice">
         {profile.role === "team_lead"
-          ? "Du siehst und verwaltest alle Teams und Daten."
+          ? "Du siehst und verwaltest ausschließlich Daten deines Teams."
           : "Du siehst und verwaltest ausschließlich Daten deines Teams."}
       </section>
       <Overview rows={rows} isTeamLead={profile.role === "team_lead"} />
       {profile.role === "team_lead" && (
-        <>
-          <TeamManager rows={rows} onSaved={load} />
-          <MembershipManager rows={rows} onSaved={load} />
-        </>
+        <EmployeeInvitation onSaved={load} session={session} />
       )}
       <section>
         <h2>Datenpflege</h2>
@@ -302,6 +305,116 @@ function App() {
         </div>
       </section>
     </main>
+  );
+}
+
+function PasswordChange({ profile }: { profile: Profile }) {
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage("");
+    const update = await supabase.auth.updateUser({ password });
+    setBusy(false);
+    if (update.error) setMessage(update.error.message);
+    else window.location.reload();
+  }
+  return (
+    <main className="card auth">
+      <p className="eyebrow">Willkommen, {profile.name}</p>
+      <h1>Passwort festlegen</h1>
+      <p className="muted">
+        Bitte lege vor der ersten Nutzung ein eigenes Passwort fest.
+      </p>
+      <form onSubmit={save}>
+        <label>
+          Neues Passwort
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            minLength={6}
+            required
+          />
+        </label>
+        {message && <p className="message">{message}</p>}
+        <button disabled={busy}>
+          {busy ? "Bitte warten..." : "Passwort speichern"}
+        </button>
+      </form>
+    </main>
+  );
+}
+
+function EmployeeInvitation({
+  session,
+  onSaved,
+}: {
+  session: Session;
+  onSaved: () => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function invite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage("");
+    const response = await fetch("/api/employees", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, email }),
+    });
+    const result = await response.json();
+    setBusy(false);
+    if (!response.ok)
+      setMessage(
+        result.error ?? "Die Einladung konnte nicht versendet werden.",
+      );
+    else {
+      setName("");
+      setEmail("");
+      setMessage(result.message);
+      await onSaved();
+    }
+  }
+  return (
+    <section>
+      <h2>Mitarbeiter einladen</h2>
+      <form className="membership" onSubmit={invite}>
+        <label>
+          Name
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            required
+          />
+        </label>
+        <label>
+          E-Mail
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+        </label>
+        <button disabled={busy}>{busy ? "Bitte warten..." : "Einladen"}</button>
+      </form>
+      {message && (
+        <p
+          className={message.startsWith("Mitarbeiter") ? "success" : "message"}
+        >
+          {message}
+        </p>
+      )}
+    </section>
   );
 }
 
