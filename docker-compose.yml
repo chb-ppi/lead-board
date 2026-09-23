@@ -61,6 +61,8 @@ services:
       - /migrations/999999999999100-fix-project-trigger-runtime.sql
       - -f
       - /migrations/999999999999101-adopt-sci-20-roles.sql
+      - -f
+      - /migrations/999999999999102-fix-profile-team-assignment.sql
     volumes:
       - ./supabase:/migrations:ro
 
