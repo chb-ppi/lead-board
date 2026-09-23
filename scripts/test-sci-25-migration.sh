@@ -147,6 +147,43 @@ $$;
 commit;
 SQL
 
+docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' >/dev/null
+do $$
+declare
+  employee_team uuid;
+  project uuid;
+  assignment uuid;
+begin
+  select team_id into employee_team
+  from public.profiles where id = '22222222-2222-2222-2222-222222222222';
+  select id into project from public.projects where name = 'Lead-created project';
+  insert into public.employee_assignments (team_id, project_id, employee_id, starts_on, available_days)
+  values (employee_team, project, '22222222-2222-2222-2222-222222222222', current_date, 1)
+  returning id into assignment;
+  insert into public.engagements (team_id, assignment_id, starts_on, offered_days, daily_rate)
+  values (employee_team, assignment, current_date, 1, 1000);
+  insert into public.offers (team_id, project_id, employee_id, offered_days, daily_rate)
+  values (employee_team, project, '22222222-2222-2222-2222-222222222222', 1, 1000);
+end;
+$$;
+
+begin;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$
+begin
+  if not exists (select 1 from public.customers where name = 'Migration customer')
+    or not exists (select 1 from public.projects where name = 'Lead-created project')
+    or not exists (select 1 from public.employee_assignments)
+    or not exists (select 1 from public.engagements)
+    or not exists (select 1 from public.offers) then
+    raise exception 'active employee cannot read expected team data';
+  end if;
+end;
+$$;
+commit;
+SQL
+
 # SCI-21 account deactivation must revoke data access and prevent a client from
 # altering account status directly.
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' >/dev/null
@@ -159,7 +196,11 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
 do $$
 begin
-  if exists (select 1 from public.projects where name = 'Lead-created project') then
+  if exists (select 1 from public.customers where name = 'Migration customer')
+    or exists (select 1 from public.projects where name = 'Lead-created project')
+    or exists (select 1 from public.employee_assignments)
+    or exists (select 1 from public.engagements)
+    or exists (select 1 from public.offers) then
     raise exception 'deactivated employee can still read team data';
   end if;
   begin

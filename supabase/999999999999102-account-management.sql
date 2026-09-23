@@ -61,3 +61,92 @@ create policy "Team leads change colleague roles" on public.profiles for update 
   and team_id = public.current_team_id()
   and public.is_team_lead()
 );
+
+-- SCI-19 policies remain on existing volumes, so replace each team-data policy
+-- with an active-account guard rather than relying on profile access alone.
+drop policy if exists "Visible customers" on public.customers;
+create policy "Visible customers" on public.customers for select to authenticated using (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+);
+drop policy if exists "Manage visible customers" on public.customers;
+create policy "Manage visible customers" on public.customers for all to authenticated using (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+) with check (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+);
+
+drop policy if exists "Visible projects" on public.projects;
+create policy "Visible projects" on public.projects for select to authenticated using (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+);
+drop policy if exists "Team leads manage their projects" on public.projects;
+create policy "Team leads manage their projects" on public.projects for all to authenticated using (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and public.is_team_lead()
+  and team_id = public.current_team_id()
+) with check (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and public.is_team_lead()
+  and team_id = public.current_team_id()
+);
+
+drop policy if exists "Visible assignments" on public.employee_assignments;
+create policy "Visible assignments" on public.employee_assignments for select to authenticated using (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+);
+drop policy if exists "Manage visible assignments" on public.employee_assignments;
+create policy "Manage visible assignments" on public.employee_assignments for all to authenticated using (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+) with check (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+);
+
+drop policy if exists "Visible engagements" on public.engagements;
+create policy "Visible engagements" on public.engagements for select to authenticated using (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+);
+drop policy if exists "Manage visible engagements" on public.engagements;
+create policy "Manage visible engagements" on public.engagements for all to authenticated using (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+) with check (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+);
+
+drop policy if exists "Visible offers" on public.offers;
+create policy "Visible offers" on public.offers for select to authenticated using (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+);
+drop policy if exists "Manage visible offers" on public.offers;
+create policy "Manage visible offers" on public.offers for all to authenticated using (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+) with check (
+  public.is_active_account()
+  and public.has_completed_initial_password_change()
+  and (public.is_team_lead() or team_id = public.current_team_id())
+);
