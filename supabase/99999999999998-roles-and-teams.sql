@@ -25,7 +25,7 @@ begin
   values (
     new.id,
     new.email,
-    case when not exists (select 1 from public.profiles) then 'team_lead' else 'employee' end,
+    (case when not exists (select 1 from public.profiles) then 'team_lead' else 'employee' end)::public.app_role,
     case
       when (new.raw_user_meta_data ->> 'team_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
         and exists (select 1 from public.teams where id = (new.raw_user_meta_data ->> 'team_id')::uuid)

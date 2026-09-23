@@ -59,6 +59,8 @@ services:
       - ON_ERROR_STOP=1
       - -f
       - /migrations/999999999999100-fix-project-trigger-runtime.sql
+      - -f
+      - /migrations/999999999999101-adopt-sci-20-roles.sql
     volumes:
       - ./supabase:/migrations:ro
 
