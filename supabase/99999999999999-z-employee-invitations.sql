@@ -15,24 +15,24 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, name, team_id)
-  values (new.id, new.email, new.email, '00000000-0000-0000-0000-000000000001');
+  insert into public.profiles (id, email, name, role, team_id)
+  values (
+    new.id,
+    new.email,
+    new.email,
+    case when not exists (select 1 from public.profiles) then 'team_lead' else 'employee' end,
+    case
+      when (new.raw_user_meta_data ->> 'team_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        and exists (select 1 from public.teams where id = (new.raw_user_meta_data ->> 'team_id')::uuid)
+      then (new.raw_user_meta_data ->> 'team_id')::uuid
+      else null
+    end
+  );
   return new;
 end;
 $$;
 
 create unique index profiles_email_lower_key on public.profiles (lower(email));
-
-create function public.email_is_in_use(candidate_email text)
-returns boolean
-language sql
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.profiles where lower(email) = lower(candidate_email)
-  );
-$$;
 
 create function public.complete_initial_password_change()
 returns void
@@ -51,13 +51,4 @@ begin
 end;
 $$;
 
-grant execute on function public.email_is_in_use(text) to authenticated;
 grant execute on function public.complete_initial_password_change() to authenticated;
-
-drop policy "Team leads can view every team" on public.teams;
-drop policy "Team leads manage teams" on public.teams;
-drop policy "Users can view their visible colleagues" on public.profiles;
-drop policy "Team leads manage profiles" on public.profiles;
-
-create policy "Users can view their team" on public.teams for select to authenticated using (id = public.current_team_id());
-create policy "Users can view their colleagues" on public.profiles for select to authenticated using (team_id = public.current_team_id());

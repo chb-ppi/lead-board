@@ -69,6 +69,8 @@ function App() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [rows, setRows] = useState<Record<string, Row[]>>({});
   const [teamName, setTeamName] = useState("");
+  const [signupTeams, setSignupTeams] = useState<Row[]>([]);
+  const [signupTeamId, setSignupTeamId] = useState("");
 
   async function load() {
     const tables = ["teams", "profiles", ...Object.keys(fields)];
@@ -99,6 +101,15 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (createAccount)
+      void supabase
+        .from("teams")
+        .select("id, name")
+        .order("name")
+        .then(({ data }) => setSignupTeams((data ?? []) as Row[]));
+  }, [createAccount]);
+
+  useEffect(() => {
     if (session) void load();
   }, [session]);
 
@@ -107,7 +118,11 @@ function App() {
     setBusy(true);
     setMessage("");
     const result = createAccount
-      ? await supabase.auth.signUp({ email, password })
+      ? await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: signupTeamId ? { team_id: signupTeamId } : {} },
+        })
       : await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     setMessage(
@@ -123,7 +138,7 @@ function App() {
     event.preventDefault();
     setBusy(true);
     setMessage("");
-    const result = await supabase.rpc("create_initial_team", {
+    const result = await supabase.rpc("create_team", {
       team_name: teamName,
     });
     setBusy(false);
@@ -149,6 +164,22 @@ function App() {
               required
             />
           </label>
+          {createAccount && signupTeams.length > 0 && (
+            <label>
+              Bestehendem Team beitreten (optional)
+              <select
+                value={signupTeamId}
+                onChange={(event) => setSignupTeamId(event.target.value)}
+              >
+                <option value="">Ohne Team fortfahren</option>
+                {signupTeams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>
             Passwort
             <input
@@ -196,17 +227,14 @@ function App() {
 
   if (profile.must_change_password) return <PasswordChange profile={profile} />;
 
-  const isBootstrap =
-    profile.role === "employee" &&
-    profile.team_id === "00000000-0000-0000-0000-000000000001";
-  if (isBootstrap)
+  if (!profile.team_id && profile.role === "team_lead")
     return (
       <main className="card">
         <p className="eyebrow">Ersteinrichtung</p>
         <h1>Erstes Team anlegen</h1>
         <p>
-          Der erste angemeldete Nutzer wird Teamleitung. Weitere Konten werden
-          danach von einer Teamleitung einem Team zugeordnet.
+          Du bist Teamleitung. Lege dein erstes Team an, um mit der Datenpflege
+          zu beginnen.
         </p>
         <form onSubmit={createTeam}>
           <label>
@@ -220,6 +248,22 @@ function App() {
           {message && <p className="message">{message}</p>}
           <button disabled={busy}>Team einrichten</button>
         </form>
+        <button className="link" onClick={() => supabase.auth.signOut()}>
+          Abmelden
+        </button>
+      </main>
+    );
+
+  if (!profile.team_id)
+    return (
+      <main className="card">
+        <p className="eyebrow">Lead Board</p>
+        <h1>Noch keinem Team zugeordnet</h1>
+        <p className="muted">
+          Du kannst derzeit keine Teamdaten sehen oder bearbeiten. Wähle ein
+          Team bei der Registrierung oder lass dich von einer Teamleitung
+          zuordnen.
+        </p>
         <button className="link" onClick={() => supabase.auth.signOut()}>
           Abmelden
         </button>

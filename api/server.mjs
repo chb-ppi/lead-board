@@ -65,23 +65,27 @@ http
       },
     );
     const currentProfile = profile.body[0];
-    if (!profile.response.ok || currentProfile?.role !== "team_lead") {
+    if (
+      !profile.response.ok ||
+      currentProfile?.role !== "team_lead" ||
+      !currentProfile.team_id
+    ) {
       send(response, 403, {
         error: "Nur Teamleitungen können Mitarbeiter anlegen.",
       });
       return;
     }
 
-    const duplicate = await request(`${restUrl}/rpc/email_is_in_use`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceRoleKey}`,
-        apikey: serviceRoleKey,
-        "Content-Type": "application/json",
+    const duplicate = await request(
+      `${restUrl}/profiles?email=ilike.${encodeURIComponent(normalizedEmail)}&select=id`,
+      {
+        headers: {
+          Authorization: `Bearer ${serviceRoleKey}`,
+          apikey: serviceRoleKey,
+        },
       },
-      body: JSON.stringify({ candidate_email: normalizedEmail }),
-    });
-    if (duplicate.body === true) {
+    );
+    if (Array.isArray(duplicate.body) && duplicate.body.length) {
       send(response, 409, {
         error: "Diese E-Mail-Adresse wird bereits verwendet.",
       });

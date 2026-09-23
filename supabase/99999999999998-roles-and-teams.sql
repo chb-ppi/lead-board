@@ -10,12 +10,9 @@ create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   email text not null,
   role public.app_role not null default 'employee',
-  team_id uuid not null references public.teams (id),
+  team_id uuid references public.teams (id),
   created_at timestamptz not null default now()
 );
-
-insert into public.teams (id, name)
-values ('00000000-0000-0000-0000-000000000001', 'Nicht zugeordnet');
 
 create function public.create_profile_for_new_user()
 returns trigger
@@ -24,8 +21,18 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, email, team_id)
-  values (new.id, new.email, '00000000-0000-0000-0000-000000000001');
+  insert into public.profiles (id, email, role, team_id)
+  values (
+    new.id,
+    new.email,
+    case when not exists (select 1 from public.profiles) then 'team_lead' else 'employee' end,
+    case
+      when (new.raw_user_meta_data ->> 'team_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        and exists (select 1 from public.teams where id = (new.raw_user_meta_data ->> 'team_id')::uuid)
+      then (new.raw_user_meta_data ->> 'team_id')::uuid
+      else null
+    end
+  );
   return new;
 end;
 $$;
@@ -159,7 +166,30 @@ for each row execute function public.enforce_team_relationships();
 create trigger offers_same_team before insert or update on public.offers
 for each row execute function public.enforce_team_relationships();
 
-create function public.create_initial_team(team_name text)
+create function public.select_team(new_team_id uuid)
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  new_profile public.profiles;
+begin
+  if auth.uid() is null or not exists (select 1 from public.teams where id = new_team_id) then
+    raise exception 'A valid team must be selected';
+  end if;
+  update public.profiles
+  set team_id = new_team_id
+  where id = auth.uid() and team_id is null
+  returning * into new_profile;
+  if new_profile is null then
+    raise exception 'A team is already assigned';
+  end if;
+  return new_profile;
+end;
+$$;
+
+create function public.create_team(team_name text)
 returns public.profiles
 language plpgsql
 security definer
@@ -169,27 +199,23 @@ declare
   new_team public.teams;
   new_profile public.profiles;
 begin
-  if auth.uid() is null or not exists (
-    select 1 from public.profiles
-    where id = auth.uid()
-      and role = 'employee'
-      and team_id = '00000000-0000-0000-0000-000000000001'
-  ) or exists (select 1 from public.profiles where role = 'team_lead') then
-    raise exception 'Initial team can only be created by the first unassigned user';
+  if auth.uid() is null or not public.is_team_lead() then
+    raise exception 'Only a team lead can create a team';
   end if;
-
   insert into public.teams (name) values (team_name) returning * into new_team;
   update public.profiles
-  set role = 'team_lead', team_id = new_team.id
-  where id = auth.uid()
+  set team_id = new_team.id
+  where id = auth.uid() and team_id is null
   returning * into new_profile;
-  return new_profile;
+  return coalesce(new_profile, (select p from public.profiles p where p.id = auth.uid()));
 end;
 $$;
 
 grant usage on schema public to anon, authenticated;
+grant select on public.teams to anon;
 grant select, insert, update on public.teams, public.profiles, public.customers, public.projects, public.employee_assignments, public.engagements, public.offers to authenticated;
-grant execute on function public.create_initial_team(text) to authenticated;
+grant execute on function public.select_team(uuid) to authenticated;
+grant execute on function public.create_team(text) to authenticated;
 
 alter table public.teams enable row level security;
 alter table public.profiles enable row level security;
@@ -199,10 +225,11 @@ alter table public.employee_assignments enable row level security;
 alter table public.engagements enable row level security;
 alter table public.offers enable row level security;
 
-create policy "Team leads can view every team" on public.teams for select to authenticated using (public.is_team_lead() or id = public.current_team_id());
-create policy "Team leads manage teams" on public.teams for all to authenticated using (public.is_team_lead()) with check (public.is_team_lead());
-create policy "Users can view their visible colleagues" on public.profiles for select to authenticated using (public.is_team_lead() or team_id = public.current_team_id());
-create policy "Team leads manage profiles" on public.profiles for all to authenticated using (public.is_team_lead()) with check (public.is_team_lead());
+create policy "Anyone can view teams for registration" on public.teams for select using (true);
+create policy "Team leads create teams" on public.teams for insert to authenticated with check (public.is_team_lead());
+create policy "Team leads manage their team" on public.teams for update to authenticated using (id = public.current_team_id() and public.is_team_lead()) with check (id = public.current_team_id() and public.is_team_lead());
+create policy "Users can view their profile and colleagues" on public.profiles for select to authenticated using (id = auth.uid() or (team_id is not null and team_id = public.current_team_id()));
+create policy "Team leads change colleague roles" on public.profiles for update to authenticated using (id <> auth.uid() and team_id = public.current_team_id() and public.is_team_lead()) with check (team_id = public.current_team_id() and public.is_team_lead());
 
 create policy "Visible customers" on public.customers for select to authenticated using (public.is_team_lead() or team_id = public.current_team_id());
 create policy "Manage visible customers" on public.customers for all to authenticated using (public.is_team_lead() or team_id = public.current_team_id()) with check (public.is_team_lead() or team_id = public.current_team_id());
