@@ -229,7 +229,7 @@ create policy "Team leads manage profiles" on public.profiles for all to authent
 create policy "Visible customers" on public.customers for select to authenticated using (public.is_team_lead() or team_id = public.current_team_id());
 create policy "Manage visible customers" on public.customers for all to authenticated using (public.is_team_lead() or team_id = public.current_team_id()) with check (public.is_team_lead() or team_id = public.current_team_id());
 create policy "Visible projects" on public.projects for select to authenticated using (public.is_team_lead() or team_id = public.current_team_id());
-create policy "Manage visible projects" on public.projects for all to authenticated using (public.is_team_lead() or team_id = public.current_team_id()) with check (public.is_team_lead() or team_id = public.current_team_id());
+create policy "Team leads manage their projects" on public.projects for all to authenticated using (public.is_team_lead() and team_id = public.current_team_id()) with check (public.is_team_lead() and team_id = public.current_team_id());
 create policy "Visible assignments" on public.employee_assignments for select to authenticated using (public.is_team_lead() or team_id = public.current_team_id());
 create policy "Manage visible assignments" on public.employee_assignments for all to authenticated using (public.is_team_lead() or team_id = public.current_team_id()) with check (public.is_team_lead() or team_id = public.current_team_id());
 create policy "Visible engagements" on public.engagements for select to authenticated using (public.is_team_lead() or team_id = public.current_team_id());

@@ -65,3 +65,10 @@ begin
   return new;
 end;
 $$;
+
+drop policy if exists "Manage visible projects" on public.projects;
+drop policy if exists "Team leads manage their projects" on public.projects;
+create policy "Team leads manage their projects" on public.projects
+for all to authenticated
+using (public.is_team_lead() and team_id = public.current_team_id())
+with check (public.is_team_lead() and team_id = public.current_team_id());
