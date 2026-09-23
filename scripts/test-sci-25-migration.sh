@@ -13,12 +13,20 @@ docker run -d --rm --name "$container" \
   supabase/postgres:15.1.0.147 >/dev/null
 
 for _ in {1..30}; do
-  if [ "$(docker exec "$container" psql -U postgres -d postgres -Atc "select to_regclass('auth.users') is not null" 2>/dev/null)" = "t" ]; then
+  if [ "$(docker exec "$container" psql -U postgres -d postgres -Atc "select to_regclass('auth.users') is not null and exists (select 1 from pg_event_trigger where evtname = 'graphql_watch_ddl')" 2>/dev/null)" = "t" ]; then
     break
   fi
   sleep 1
 done
-test "$(docker exec "$container" psql -U postgres -d postgres -Atc "select to_regclass('auth.users') is not null")" = "t"
+# The image briefly restarts PostgreSQL after its bundled migrations finish.
+sleep 5
+test "$(docker exec "$container" psql -U postgres -d postgres -Atc "select to_regclass('auth.users') is not null and exists (select 1 from pg_event_trigger where evtname = 'graphql_watch_ddl')")" = "t"
+
+# The optional PostgREST and GraphQL DDL listeners are still initializing in
+# this disposable image. They are unrelated to the application migration.
+docker exec "$container" bash -c \
+  "PGPASSWORD=test-password psql -v ON_ERROR_STOP=1 -U supabase_admin -d postgres -c 'alter event trigger pgrst_ddl_watch disable; alter event trigger pgrst_drop_watch disable; alter event trigger graphql_watch_ddl disable; alter event trigger graphql_watch_drop disable;'" \
+  >/dev/null
 
 # Recreate the schema that was already present in deployed SCI-20 volumes.
 git show 02ae21f^:supabase/99999999999998-roles-and-teams.sql |
