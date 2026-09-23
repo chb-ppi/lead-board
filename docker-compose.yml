@@ -62,6 +62,8 @@ services:
       - -f
       - /migrations/999999999999101-adopt-sci-20-roles.sql
       - -f
+      - /migrations/999999999999102-fix-profile-team-assignment.sql
+      - -f
       - /migrations/999999999999102-account-management.sql
     volumes:
       - ./supabase:/migrations:ro
