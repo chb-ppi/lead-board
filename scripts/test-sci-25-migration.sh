@@ -44,9 +44,12 @@ SQL
 
 docker cp supabase/999999999999100-fix-project-trigger-runtime.sql "$container":/tmp/100.sql
 docker cp supabase/999999999999101-adopt-sci-20-roles.sql "$container":/tmp/101.sql
+docker cp supabase/999999999999102-account-management.sql "$container":/tmp/102.sql
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /tmp/100.sql >/dev/null
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /tmp/101.sql >/dev/null
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /tmp/101.sql >/dev/null
+docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /tmp/102.sql >/dev/null
+docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /tmp/102.sql >/dev/null
 
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' >/dev/null
 do $$
@@ -136,6 +139,32 @@ begin
     select team_id, (select id from public.customers where name = 'Migration customer'), 'Employee-created project'
     from public.profiles where id = '22222222-2222-2222-2222-222222222222';
     raise exception 'employee was able to create a project';
+  exception when insufficient_privilege then
+    null;
+  end;
+end;
+$$;
+commit;
+SQL
+
+# SCI-21 account deactivation must revoke data access and prevent a client from
+# altering account status directly.
+docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' >/dev/null
+update public.profiles
+set is_active = false
+where id = '22222222-2222-2222-2222-222222222222';
+
+begin;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$
+begin
+  if exists (select 1 from public.projects where name = 'Lead-created project') then
+    raise exception 'deactivated employee can still read team data';
+  end if;
+  begin
+    update public.profiles set is_active = true where id = auth.uid();
+    raise exception 'client can reactivate its own account';
   exception when insufficient_privilege then
     null;
   end;

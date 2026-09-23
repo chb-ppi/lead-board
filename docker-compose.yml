@@ -61,6 +61,8 @@ services:
       - /migrations/999999999999100-fix-project-trigger-runtime.sql
       - -f
       - /migrations/999999999999101-adopt-sci-20-roles.sql
+      - -f
+      - /migrations/999999999999102-account-management.sql
     volumes:
       - ./supabase:/migrations:ro
 
@@ -100,6 +102,20 @@ services:
       - kong
     ports:
       - "3000:80"
+
+  api:
+    image: node:24-alpine
+    command: node /app/api/server.mjs
+    depends_on:
+      - auth
+      - rest
+    environment:
+      AUTH_URL: http://auth:9999
+      REST_URL: http://rest:3000
+      SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY:?set a Supabase service-role JWT}
+      SITE_URL: http://localhost:3000
+    volumes:
+      - ./api:/app/api:ro
 
 volumes:
   supabase-db:

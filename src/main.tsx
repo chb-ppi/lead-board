@@ -284,6 +284,11 @@ function App() {
         <>
           <TeamManager rows={rows} onSaved={load} />
           <MembershipManager rows={rows} onSaved={load} />
+          <AccountManager
+            rows={rows}
+            accessToken={session.access_token}
+            onSaved={load}
+          />
         </>
       )}
       <section>
@@ -521,6 +526,101 @@ function MembershipManager({
         </label>
         <button disabled={!selected}>Speichern</button>
       </form>
+    </section>
+  );
+}
+
+function AccountManager({
+  rows,
+  accessToken,
+  onSaved,
+}: {
+  rows: Record<string, Row[]>;
+  accessToken: string;
+  onSaved: () => Promise<void>;
+}) {
+  const [profileId, setProfileId] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const employee = rows.profiles?.find((item) => item.id === profileId);
+
+  async function manage(action: "deactivate" | "activate" | "reset") {
+    if (!profileId) return;
+    setBusy(true);
+    setMessage("");
+    const response = await fetch(`/api/employees/${profileId}/account`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action }),
+    });
+    const result = await response.json().catch(() => ({}));
+    setBusy(false);
+    setMessage(
+      result.error ?? result.message ?? "Kontenaktion fehlgeschlagen.",
+    );
+    if (response.ok) await onSaved();
+  }
+
+  return (
+    <section>
+      <h2>Mitarbeiterkonten</h2>
+      <p className="muted">
+        Deaktiviere, reaktiviere oder setze das Passwort eines Mitarbeiters
+        deines Teams zurück.
+      </p>
+      <div className="account-controls">
+        <label>
+          Mitarbeiter
+          <select
+            value={profileId}
+            onChange={(event) => {
+              setProfileId(event.target.value);
+              setMessage("");
+            }}
+          >
+            <option value="">Auswählen</option>
+            {rows.profiles
+              ?.filter((item) => item.role === "employee")
+              .map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.email}
+                </option>
+              ))}
+          </select>
+        </label>
+        {employee && (
+          <p className="muted">
+            Status: {employee.is_active ? "Aktiv" : "Deaktiviert"}
+            {employee.last_reset_requested_at
+              ? ` · Letzte Zurücksetzung: ${new Date(employee.last_reset_requested_at).toLocaleString("de-DE")} (${employee.reset_status})`
+              : ""}
+          </p>
+        )}
+        <div className="account-actions">
+          <button
+            disabled={!employee || busy || !employee.is_active}
+            onClick={() => void manage("deactivate")}
+          >
+            Deaktivieren
+          </button>
+          <button
+            disabled={!employee || busy || Boolean(employee.is_active)}
+            onClick={() => void manage("activate")}
+          >
+            Aktivieren
+          </button>
+          <button
+            disabled={!employee || busy}
+            onClick={() => void manage("reset")}
+          >
+            Passwort zurücksetzen
+          </button>
+        </div>
+        {message && <p className="message">{message}</p>}
+      </div>
     </section>
   );
 }
