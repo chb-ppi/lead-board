@@ -1,17 +1,151 @@
-:root { font-family: Inter, system-ui, sans-serif; color: #14213d; background: #eef4f4; }
-* { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; padding: 1.5rem; }
-.card, .app { margin: auto; background: #fff; border-radius: 1rem; box-shadow: 0 1rem 3rem #14213d20; }
-.card { width: min(100%, 32rem); padding: 2.5rem; }
-.app { width: min(100%, 76rem); padding: 2rem; }
-.auth { margin-top: max(2rem, 12vh); }
-header { display: flex; justify-content: space-between; gap: 1rem; align-items: start; border-bottom: 1px solid #d8e0e0; }
-.eyebrow { color: #007c73; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: .75rem; }
-h1 { margin: 0; font-size: 2rem; } h2 { margin: 2rem 0 .75rem; } h3 { margin: 0 0 1rem; }
-form { display: grid; gap: 1rem; } label { display: grid; gap: .4rem; font-weight: 600; }
-input, select { width: 100%; padding: .7rem; border: 1px solid #b9c5c5; border-radius: .4rem; font: inherit; background: #fff; }
-button { cursor: pointer; padding: .75rem 1rem; border: 0; border-radius: .4rem; color: #fff; background: #007c73; font: inherit; font-weight: 700; }
-button:disabled { opacity: .6; cursor: progress; } button.link { margin-top: 1rem; padding: 0; color: #007c73; background: transparent; }
-.message { margin: 0; color: #b42318; }.muted { color: #5d6a7e; }.notice { margin-top: 1.5rem; padding: 1rem; border-left: .3rem solid #007c73; background: #e5f4f1; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }.grid article { padding: 1.25rem; border: 1px solid #d8e0e0; border-radius: .75rem; }.compact { display: flex; gap: .75rem; }.compact button { white-space: nowrap; }.membership { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; }
-@media (max-width: 600px) { body { padding: .75rem; }.app, .card { padding: 1.25rem; } header { align-items: stretch; flex-direction: column; }.compact { flex-direction: column; }.membership { grid-template-columns: 1fr; } }
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color: #14213d;
+  background: #eef4f4;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: 1.5rem;
+}
+.card,
+.app {
+  margin: auto;
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 1rem 3rem #14213d20;
+}
+.card {
+  width: min(100%, 32rem);
+  padding: 2.5rem;
+}
+.app {
+  width: min(100%, 76rem);
+  padding: 2rem;
+}
+.auth {
+  margin-top: max(2rem, 12vh);
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+  border-bottom: 1px solid #d8e0e0;
+}
+.eyebrow {
+  color: #007c73;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+h2 {
+  margin: 2rem 0 0.75rem;
+}
+h3 {
+  margin: 0 0 1rem;
+}
+form {
+  display: grid;
+  gap: 1rem;
+}
+label {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 600;
+}
+input,
+select {
+  width: 100%;
+  padding: 0.7rem;
+  border: 1px solid #b9c5c5;
+  border-radius: 0.4rem;
+  font: inherit;
+  background: #fff;
+}
+button {
+  cursor: pointer;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-radius: 0.4rem;
+  color: #fff;
+  background: #007c73;
+  font: inherit;
+  font-weight: 700;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+button.link {
+  margin-top: 1rem;
+  padding: 0;
+  color: #007c73;
+  background: transparent;
+}
+.message {
+  margin: 0;
+  color: #b42318;
+}
+.warning {
+  margin: 0;
+  color: #8a4b00;
+}
+.muted {
+  color: #5d6a7e;
+}
+.notice {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-left: 0.3rem solid #007c73;
+  background: #e5f4f1;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+}
+.grid article {
+  padding: 1.25rem;
+  border: 1px solid #d8e0e0;
+  border-radius: 0.75rem;
+}
+.compact {
+  display: flex;
+  gap: 0.75rem;
+}
+.compact button {
+  white-space: nowrap;
+}
+.membership {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+}
+@media (max-width: 600px) {
+  body {
+    padding: 0.75rem;
+  }
+  .app,
+  .card {
+    padding: 1.25rem;
+  }
+  header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .compact {
+    flex-direction: column;
+  }
+  .membership {
+    grid-template-columns: 1fr;
+  }
+}
