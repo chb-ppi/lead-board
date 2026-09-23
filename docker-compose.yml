@@ -24,6 +24,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
@@ -38,11 +40,33 @@ services:
       GOTRUE_MAILER_AUTOCONFIRM: "true"
       GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
 
-  rest:
-    image: postgrest/postgrest:v12.2.8
+  migrate:
+    image: supabase/postgres:15.1.0.147
     depends_on:
       db:
         condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?copy .env.example to .env}
+    entrypoint:
+      - psql
+      - -h
+      - db
+      - -U
+      - supabase_admin
+      - -d
+      - postgres
+      - -v
+      - ON_ERROR_STOP=1
+      - -f
+      - /migrations/999999999999100-fix-project-trigger-runtime.sql
+    volumes:
+      - ./supabase:/migrations:ro
+
+  rest:
+    image: postgrest/postgrest:v12.2.8
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD}@db:5432/postgres
       PGRST_DB_SCHEMAS: public
