@@ -42,11 +42,23 @@ insert into auth.users (id, email, raw_user_meta_data)
 values ('11111111-1111-1111-1111-111111111111', 'legacy@example.test', '{}'::jsonb);
 SQL
 
-docker cp supabase/999999999999100-fix-project-trigger-runtime.sql "$container":/tmp/100.sql
-docker cp supabase/999999999999101-adopt-sci-20-roles.sql "$container":/tmp/101.sql
-docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /tmp/100.sql >/dev/null
-docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /tmp/101.sql >/dev/null
-docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -f /tmp/101.sql >/dev/null
+# Mirror the compose migration service, including its execution role and the
+# second normal start against the same existing volume.
+migrations=(
+  999999999999100-fix-project-trigger-runtime.sql
+  999999999999101-adopt-sci-20-roles.sql
+  999999999999102-fix-profile-team-assignment.sql
+)
+for migration in "${migrations[@]}"; do
+  docker cp "supabase/$migration" "$container:/tmp/$migration"
+done
+for _ in 1 2; do
+  for migration in "${migrations[@]}"; do
+    docker exec "$container" bash -c \
+      "PGPASSWORD=test-password psql -v ON_ERROR_STOP=1 -U supabase_admin -d postgres -f /tmp/$migration" \
+      >/dev/null
+  done
+done
 
 docker exec "$container" psql -v ON_ERROR_STOP=1 -U postgres -d postgres <<'SQL' >/dev/null
 do $$
