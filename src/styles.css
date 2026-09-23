@@ -169,6 +169,16 @@ tbody tr:last-child td {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: end;
 }
+.account-controls {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 38rem;
+}
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
 @media (max-width: 600px) {
   body {
     padding: 0.75rem;
@@ -186,5 +196,8 @@ tbody tr:last-child td {
   }
   .membership {
     grid-template-columns: 1fr;
+  }
+  .account-actions {
+    display: grid;
   }
 }
