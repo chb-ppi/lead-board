@@ -235,6 +235,7 @@ function App() {
           ? "Du siehst und verwaltest alle Teams und Daten."
           : "Du siehst und verwaltest ausschließlich Daten deines Teams."}
       </section>
+      <Overview rows={rows} isTeamLead={profile.role === "team_lead"} />
       {profile.role === "team_lead" && (
         <>
           <TeamManager rows={rows} onSaved={load} />
@@ -257,6 +258,107 @@ function App() {
         </div>
       </section>
     </main>
+  );
+}
+
+function Overview({
+  rows,
+  isTeamLead,
+}: {
+  rows: Record<string, Row[]>;
+  isTeamLead: boolean;
+}) {
+  const byId = (table: string, id: string | undefined) =>
+    rows[table]?.find((row) => row.id === id);
+  const name = (table: string, id: string | undefined) =>
+    byId(table, id)?.name ?? "-";
+  const employee = (id: string | undefined) =>
+    byId("profiles", id)?.email ?? "-";
+  const team = (id: string | undefined) => name("teams", id);
+  const status = (value: string | undefined) =>
+    offerStatuses.find(([key]) => key === value)?.[1] ?? value ?? "-";
+  const money = (value: string | undefined) =>
+    value ? `${Number(value).toLocaleString("de-DE")} EUR` : "-";
+
+  return (
+    <section className="overview">
+      <div>
+        <p className="eyebrow">Übersicht</p>
+        <h2>{isTeamLead ? "Alle Teams" : "Mein Team"}</h2>
+        <p className="muted">
+          {isTeamLead
+            ? "Einsätze und Angebote aller Teams."
+            : "Einsätze und Angebote deines Teams."}
+        </p>
+      </div>
+      <h3>Projekte und Einsätze</h3>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Mitarbeiter</th>
+              <th>Team</th>
+              <th>Projekt</th>
+              <th>Kunde</th>
+              <th>Einsatzzeitraum</th>
+              <th>Verfügbare Arbeitstage</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(rows.employee_assignments ?? []).map((assignment) => {
+              const project = byId("projects", assignment.project_id);
+              return (
+                <tr key={assignment.id}>
+                  <td>{employee(assignment.employee_id)}</td>
+                  <td>{team(assignment.team_id)}</td>
+                  <td>{project?.name ?? "-"}</td>
+                  <td>{name("customers", project?.customer_id)}</td>
+                  <td>
+                    {assignment.starts_on} bis {assignment.ends_on ?? "offen"}
+                  </td>
+                  <td>{assignment.available_days}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {!rows.employee_assignments?.length && (
+          <p className="empty">Noch keine Einsätze vorhanden.</p>
+        )}
+      </div>
+      <h3>Angebote</h3>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Kunde</th>
+              <th>Projekt</th>
+              <th>Mitarbeiter</th>
+              <th>Team</th>
+              <th>Angebotene Tage</th>
+              <th>Tagessatz</th>
+              <th>Verhandlungsstatus</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(rows.offers ?? []).map((offer) => (
+              <tr key={offer.id}>
+                <td>{name("customers", offer.customer_id)}</td>
+                <td>{name("projects", offer.project_id)}</td>
+                <td>{employee(offer.employee_id)}</td>
+                <td>{team(offer.team_id)}</td>
+                <td>{offer.offered_days}</td>
+                <td>{money(offer.daily_rate)}</td>
+                <td>{status(offer.status)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!rows.offers?.length && (
+          <p className="empty">Noch keine Angebote vorhanden.</p>
+        )}
+      </div>
+    </section>
   );
 }
 

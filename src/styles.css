@@ -108,6 +108,45 @@ button.link {
   border-left: 0.3rem solid #007c73;
   background: #e5f4f1;
 }
+.overview {
+  margin-top: 2rem;
+}
+.overview h2 {
+  margin-top: 0;
+}
+.overview h3 {
+  margin-top: 1.5rem;
+}
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid #d8e0e0;
+  border-radius: 0.75rem;
+}
+table {
+  width: 100%;
+  min-width: 48rem;
+  border-collapse: collapse;
+  text-align: left;
+}
+th,
+td {
+  padding: 0.8rem;
+  border-bottom: 1px solid #d8e0e0;
+  vertical-align: top;
+}
+th {
+  color: #31535a;
+  background: #f4f8f7;
+  font-size: 0.8rem;
+}
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+.empty {
+  margin: 0;
+  padding: 1rem;
+  color: #5d6a7e;
+}
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
