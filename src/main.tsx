@@ -26,12 +26,32 @@ const fields: Record<string, Array<[string, string, string?]>> = {
     ["ends_on", "Einsatzende", "date"],
     ["available_days", "Verfuegbare Arbeitstage", "number"],
   ],
+  offers: [
+    ["customer_id", "Kunde", "customers"],
+    ["project_id", "Projekt", "projects"],
+    ["employee_id", "Mitarbeiter", "profiles"],
+    ["starts_on", "Angebotsbeginn", "date"],
+    ["ends_on", "Angebotsende", "date"],
+    ["offered_days", "Angebotene Tage", "number"],
+    ["daily_rate", "Tagessatz (EUR)", "number"],
+    ["status", "Verhandlungsstatus", "offer_status"],
+  ],
 };
+
+const offerStatuses = [
+  ["draft", "Entwurf"],
+  ["sent", "Versendet"],
+  ["negotiation", "In Verhandlung"],
+  ["accepted", "Gewonnen"],
+  ["rejected", "Verloren"],
+];
 
 function label(row: Row, table: string) {
   if (table === "profiles") return `${row.email} (${row.role})`;
   if (table === "employee_assignments")
     return `${row.employee_id?.slice(0, 8)} · ${row.project_id?.slice(0, 8)}`;
+  if (table === "offers")
+    return `${row.employee_id?.slice(0, 8)} · ${row.offered_days} Tage`;
   return row.name || row.id.slice(0, 8);
 }
 
@@ -376,6 +396,7 @@ function Editor({
   const [values, setValues] = useState<Row>({});
   const [selectedTeamId, setSelectedTeamId] = useState(teamId);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const definition = fields[table];
   const existing = rows[table] ?? [];
   const effectiveTeamId = selected === "new" ? selectedTeamId : values.team_id;
@@ -386,10 +407,12 @@ function Editor({
     setValues(next);
     setSelectedTeamId(next.team_id ?? teamId);
     setError("");
+    setWarning("");
   };
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setWarning("");
     if (
       table === "employee_assignments" &&
       values.ends_on &&
@@ -398,6 +421,37 @@ function Editor({
     ) {
       setError("Das Einsatzende darf nicht vor dem Einsatzbeginn liegen.");
       return;
+    }
+    if (
+      table === "offers" &&
+      values.ends_on &&
+      values.starts_on &&
+      values.ends_on < values.starts_on
+    ) {
+      setError("Das Angebotsende darf nicht vor dem Angebotsbeginn liegen.");
+      return;
+    }
+    const matchingAssignment =
+      table === "offers"
+        ? (rows.employee_assignments ?? []).find(
+            (assignment) =>
+              assignment.team_id === effectiveTeamId &&
+              assignment.employee_id === values.employee_id &&
+              assignment.project_id === values.project_id &&
+              assignment.starts_on <= values.starts_on &&
+              (!assignment.ends_on || assignment.ends_on >= values.ends_on),
+          )
+        : undefined;
+    const offeredDays = Number(values.offered_days);
+    const availableDays = Number(matchingAssignment?.available_days);
+    let capacityWarning = "";
+    if (
+      table === "offers" &&
+      matchingAssignment &&
+      offeredDays > availableDays
+    ) {
+      capacityWarning = `Kapazitaetswarnung: ${offeredDays} angebotene Tage uebersteigen ${availableDays} verfuegbare Tage. Das Angebot wird trotzdem gespeichert.`;
+      setWarning(capacityWarning);
     }
     const payload = Object.fromEntries(
       definition.map(([key]) => [key, values[key] || null]),
@@ -411,6 +465,7 @@ function Editor({
     else {
       changeSelected("new");
       await onSaved();
+      setWarning(capacityWarning);
     }
   }
   return (
@@ -422,6 +477,7 @@ function Editor({
               customers: "Kunden",
               projects: "Projekte",
               employee_assignments: "Einsätze",
+              offers: "Angebote",
             } as Record<string, string>
           )[table]
         }
@@ -459,7 +515,20 @@ function Editor({
         {definition.map(([key, fieldLabel, source]) => (
           <label key={key}>
             {fieldLabel}
-            {source && !["date", "number"].includes(source) ? (
+            {source === "offer_status" ? (
+              <select
+                value={values[key] ?? "draft"}
+                onChange={(event) =>
+                  setValues({ ...values, [key]: event.target.value })
+                }
+              >
+                {offerStatuses.map(([value, statusLabel]) => (
+                  <option key={value} value={value}>
+                    {statusLabel}
+                  </option>
+                ))}
+              </select>
+            ) : source && !["date", "number"].includes(source) ? (
               <select
                 value={values[key] ?? ""}
                 onChange={(event) =>
@@ -469,7 +538,13 @@ function Editor({
               >
                 <option value="">Auswählen</option>
                 {(rows[source] ?? [])
-                  .filter((row) => row.team_id === effectiveTeamId)
+                  .filter(
+                    (row) =>
+                      row.team_id === effectiveTeamId &&
+                      (source !== "projects" ||
+                        !values.customer_id ||
+                        row.customer_id === values.customer_id),
+                  )
                   .map((row) => (
                     <option key={row.id} value={row.id}>
                       {label(row, source)}
@@ -480,7 +555,7 @@ function Editor({
               <input
                 type={source || "text"}
                 min={key === "ends_on" ? values.starts_on : undefined}
-                step={source === "number" ? "0.5" : undefined}
+                step={source === "number" ? "0.01" : undefined}
                 value={values[key] ?? ""}
                 onChange={(event) =>
                   setValues({ ...values, [key]: event.target.value })
@@ -491,6 +566,7 @@ function Editor({
           </label>
         ))}
         {error && <p className="message">{error}</p>}
+        {warning && <p className="warning">{warning}</p>}
         <button>{selected === "new" ? "Anlegen" : "Speichern"}</button>
       </form>
     </article>

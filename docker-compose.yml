@@ -8,8 +8,13 @@ services:
       - supabase-db:/var/lib/postgresql/data
       - ./supabase/99999999999998-roles-and-teams.sql:/docker-entrypoint-initdb.d/migrations/99999999999998-roles-and-teams.sql:ro
       - ./supabase/99999999999999-local-role-passwords.sql:/docker-entrypoint-initdb.d/migrations/99999999999999-local-role-passwords.sql:ro
+      - ./supabase/99999999999999-z-offer-periods.sql:/docker-entrypoint-initdb.d/migrations/99999999999999-z-offer-periods.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres && psql -U postgres -d postgres -tAc \"select count(*) from pg_roles where rolname in ('authenticator', 'supabase_auth_admin') and rolpassword is not null\" | grep -qx 2"]
+      test:
+        [
+          "CMD-SHELL",
+          'pg_isready -U postgres && psql -U postgres -d postgres -tAc "select count(*) from pg_roles where rolname in (''authenticator'', ''supabase_auth_admin'') and rolpassword is not null" | grep -qx 2',
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
