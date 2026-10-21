@@ -279,6 +279,7 @@ function App() {
           ? "Du siehst und verwaltest alle Teams und Daten."
           : "Du siehst und verwaltest ausschließlich Daten deines Teams."}
       </section>
+      <Employees rows={rows} />
       <Overview rows={rows} isTeamLead={profile.role === "team_lead"} />
       {profile.role === "team_lead" && (
         <>
@@ -302,6 +303,48 @@ function App() {
         </div>
       </section>
     </main>
+  );
+}
+
+function Employees({ rows }: { rows: Record<string, Row[]> }) {
+  const teamName = (id: string | undefined) =>
+    rows.teams?.find((team) => team.id === id)?.name ?? "-";
+  const roleName = (role: string | undefined) =>
+    role === "team_lead" ? "Teamleitung" : "Mitarbeiter";
+
+  return (
+    <section className="employees" aria-labelledby="employees-heading">
+      <div>
+        <p className="eyebrow">Mitarbeiter</p>
+        <h2 id="employees-heading">Mitarbeiterverzeichnis</h2>
+        <p className="muted">Aktuelle Mitarbeiterkonten und Teamzuordnungen.</p>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>E-Mail-Adresse</th>
+              <th>Team</th>
+              <th>Rolle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(rows.profiles ?? []).map((employee) => (
+              <tr key={employee.id}>
+                <td>{employee.name || employee.email}</td>
+                <td>{employee.email}</td>
+                <td>{teamName(employee.team_id)}</td>
+                <td>{roleName(employee.role)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!rows.profiles?.length && (
+          <p className="empty">Noch keine Mitarbeiter vorhanden.</p>
+        )}
+      </div>
+    </section>
   );
 }
 
