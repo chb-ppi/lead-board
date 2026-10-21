@@ -111,6 +111,12 @@ button.link {
 .overview {
   margin-top: 2rem;
 }
+.employees {
+  margin-top: 2rem;
+}
+.employees h2 {
+  margin-top: 0;
+}
 .overview h2 {
   margin-top: 0;
 }

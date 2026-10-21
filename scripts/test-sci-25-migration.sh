@@ -48,6 +48,7 @@ migrations=(
   999999999999100-fix-project-trigger-runtime.sql
   999999999999101-adopt-sci-20-roles.sql
   999999999999102-fix-profile-team-assignment.sql
+  999999999999103-employee-directory.sql
 )
 for migration in "${migrations[@]}"; do
   docker cp "supabase/$migration" "$container:/tmp/$migration"
@@ -151,6 +152,39 @@ begin
   exception when insufficient_privilege then
     null;
   end;
+end;
+$$;
+commit;
+
+-- The employee directory must show a lead every team while employees cannot
+-- retrieve profiles from another team through the API.
+insert into public.teams (name) values ('Other team');
+insert into auth.users (id, email, raw_user_meta_data)
+values ('33333333-3333-3333-3333-333333333333', 'other@example.test', '{}'::jsonb);
+update public.profiles
+set team_id = (select id from public.teams where name = 'Other team')
+where id = '33333333-3333-3333-3333-333333333333';
+
+begin;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+do $$
+begin
+  if not exists (select 1 from public.profiles where id = '33333333-3333-3333-3333-333333333333') then
+    raise exception 'team lead cannot read an employee from another team';
+  end if;
+end;
+$$;
+commit;
+
+begin;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$
+begin
+  if exists (select 1 from public.profiles where id = '33333333-3333-3333-3333-333333333333') then
+    raise exception 'employee can read an employee from another team';
+  end if;
 end;
 $$;
 commit;
